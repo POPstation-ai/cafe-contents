@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>生成AIできませんゲーム</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif;
+  background: #FFFFFF;
+  min-height: 100vh;
+  color: #00008C;
+  user-select: none;
+}
+
+/* ── ヘッダー ── */
+.header {
+  background: #00008C;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 4px solid #FADC00;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #FADC00;
+  letter-spacing: 0.5px;
+}
+
+.header-subtitle {
+  font-size: 11px;
+  color: rgba(250,220,0,0.7);
+  margin-top: 3px;
+}
+
+.progress-info {
+  text-align: right;
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+}
+
+.progress-info strong {
+  color: #FADC00;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* ── ゲームエリア ── */
+.game-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 16px;
+  gap: 16px;
+}
+
+/* ── ゾーン ── */
+.zones-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 980px;
+}
+
+.zone {
+  border-radius: 14px;
+  padding: 12px 10px;
+  min-height: 110px;
+  border: 2.5px dashed;
+  transition: all 0.18s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.zone.drag-over, .zone.tap-highlight {
+  transform: scale(1.03);
+  box-shadow: 0 0 20px rgba(0,0,140,0.18);
+}
+
+.zone-toku   { background: rgba(39,174,96,0.07);   border-color: #27ae60; }
+.zone-nigate { background: rgba(250,220,0,0.10);   border-color: #c8a800; }
+.zone-dame   { background: rgba(200,0,0,0.06);     border-color: #cc0000; }
+
+.zone-toku.drag-over,   .zone-toku.tap-highlight   { background: rgba(39,174,96,0.18); }
+.zone-nigate.drag-over, .zone-nigate.tap-highlight { background: rgba(250,220,0,0.22); }
+.zone-dame.drag-over,   .zone-dame.tap-highlight   { background: rgba(200,0,0,0.15); }
+
+.zone-label {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 16px;
+  border-radius: 20px;
+  text-align: center;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.zone-toku   .zone-label { background: #27ae60; color: #fff; }
+.zone-nigate .zone-label { background: #FADC00; color: #00008C; }
+.zone-dame   .zone-label { background: #cc0000; color: #fff; }
+
+.zone-sublabel {
+  font-size: 10px;
+  color: rgba(0,0,140,0.45);
+  text-align: center;
+}
+
+.zone-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(0,0,140,0.35);
+}
+
+.zone-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+}
+
+.placed-chip {
+  background: #00008C;
+  border: 1px solid rgba(0,0,140,0.2);
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-size: 10px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.14s;
+  text-align: center;
+  max-width: 106px;
+  line-height: 1.35;
+}
+
+.placed-chip:hover {
+  background: #000070;
+  transform: scale(1.06);
+}
+
+/* ── カード手札 ── */
+.deck-section {
+  width: 100%;
+  max-width: 980px;
+}
+
+.deck-label {
+  text-align: center;
+  font-size: 11px;
+  color: rgba(0,0,140,0.4);
+  margin-bottom: 10px;
+}
+
+.card-hand {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .card-hand { grid-template-columns: repeat(6, 1fr); }
+}
+@media (max-width: 640px) {
+  .card-hand { grid-template-columns: repeat(4, 1fr); }
+  .zones-container { grid-template-columns: 1fr; }
+}
+
+.card {
+  min-height: 148px;
+  background: #fff;
+  border: 2px solid #00008C;
+  border-radius: 10px;
+  padding: 9px 7px;
+  cursor: grab;
+  transition: all 0.18s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0,0,140,0.1);
+}
+
+.card:hover {
+  border-color: #FADC00;
+  background: #fffbdd;
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 0 6px 18px rgba(0,0,140,0.18);
+}
+
+.card.dragging { opacity: 0.3; transform: scale(0.93); }
+
+.card.selected {
+  border-color: #FADC00;
+  background: #fffbdd;
+  box-shadow: 0 0 0 3px #FADC00, 0 6px 18px rgba(250,220,0,0.35);
+  transform: scale(1.06);
+}
+
+.card-num {
+  font-size: 9px;
+  color: rgba(0,0,140,0.3);
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  font-weight: 700;
+}
+
+.card-icon {
+  font-size: 18px;
+  margin-bottom: 4px;
+  margin-top: 6px;
+}
+
+.card-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #00008C;
+  line-height: 1.4;
+  margin-bottom: 5px;
+}
+
+.card-divider {
+  width: 75%;
+  height: 1px;
+  background: rgba(0,0,140,0.12);
+  margin: 0 auto 5px;
+}
+
+.card-instruction {
+  font-size: 9px;
+  color: rgba(0,0,140,0.55);
+  line-height: 1.45;
+  text-align: center;
+}
+
+/* ── バナー ── */
+.selected-banner {
+  text-align: center;
+  font-size: 13px;
+  color: #00008C;
+  font-weight: 700;
+  margin-top: 6px;
+  min-height: 18px;
+  background: #FADC00;
+  border-radius: 8px;
+  padding: 5px 12px;
+  display: none;
+}
+
+.selected-banner.visible { display: block; }
+
+.tap-hint {
+  text-align: center;
+  font-size: 11px;
+  color: rgba(0,0,140,0.38);
+  margin-top: 6px;
+  min-height: 16px;
+}
+
+/* ── 完了バナー（オーバーレイなし） ── */
+.done-banner {
+  width: 100%;
+  max-width: 980px;
+  background: #00008C;
+  border-radius: 14px;
+  padding: 18px 24px;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.done-banner.visible { display: flex; }
+
+.done-banner h2 {
+  font-size: 18px;
+  color: #FADC00;
+  font-weight: 700;
+}
+
+.done-banner p {
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.done-summary {
+  display: flex;
+  gap: 12px;
+}
+
+.done-item {
+  border-radius: 10px;
+  padding: 10px 16px;
+  text-align: center;
+  min-width: 72px;
+}
+
+.done-item .big { font-size: 26px; font-weight: 700; display: block; }
+.done-item .lbl { font-size: 10px; display: block; margin-top: 2px; opacity: 0.85; }
+
+.done-toku   { background: rgba(39,174,96,0.25);  color: #1a8a50; }
+.done-nigate { background: rgba(250,220,0,0.35);  color: #7a6a00; }
+.done-dame   { background: rgba(200,0,0,0.18);    color: #aa0000; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">生成AIできませんゲーム</div>
+    <div class="header-subtitle">ビジネス版 — 業務タスクを3つのゾーンに分類しよう！</div>
+  </div>
+  <div class="progress-info">
+    残り <strong id="remaining">32</strong> 枚
+  </div>
+</div>
+
+<div class="game-area">
+
+  <!-- 完了バナー（上部に出す） -->
+  <div class="done-banner" id="done-banner">
+    <div>
+      <h2>🎉 分類完了！</h2>
+      <p>全カードの振り分けが終わりました。<br>この後の講義で答え合わせをしましょう！</p>
+    </div>
+    <div class="done-summary">
+      <div class="done-item done-toku">
+        <span class="big" id="count-toku">0</span>
+        <span class="lbl">得意</span>
+      </div>
+      <div class="done-item done-nigate">
+        <span class="big" id="count-nigate">0</span>
+        <span class="lbl">苦手</span>
+      </div>
+      <div class="done-item done-dame">
+        <span class="big" id="count-dame">0</span>
+        <span class="lbl">やってはダメ</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ゾーン -->
+  <div class="zones-container">
+    <div class="zone zone-toku" id="zone-toku"
+      ondragover="onDragOver(event,'toku')" ondragleave="onDragLeave('toku')" ondrop="onDrop(event,'toku')"
+      onclick="onZoneTap('toku')">
+      <div class="zone-label">得　意</div>
+      <div class="zone-sublabel">高品質で安全に実行できる</div>
+      <div class="zone-count" id="count-chip-toku"></div>
+      <div class="zone-cards" id="placed-toku"></div>
+    </div>
+    <div class="zone zone-nigate" id="zone-nigate"
+      ondragover="onDragOver(event,'nigate')" ondragleave="onDragLeave('nigate')" ondrop="onDrop(event,'nigate')"
+      onclick="onZoneTap('nigate')">
+      <div class="zone-label">苦　手</div>
+      <div class="zone-sublabel">注意・工夫が必要</div>
+      <div class="zone-count" id="count-chip-nigate"></div>
+      <div class="zone-cards" id="placed-nigate"></div>
+    </div>
+    <div class="zone zone-dame" id="zone-dame"
+      ondragover="onDragOver(event,'dame')" ondragleave="onDragLeave('dame')" ondrop="onDrop(event,'dame')"
+      onclick="onZoneTap('dame')">
+      <div class="zone-label">やってはダメ／できない</div>
+      <div class="zone-sublabel">法的リスク・技術的限界</div>
+      <div class="zone-count" id="count-chip-dame"></div>
+      <div class="zone-cards" id="placed-dame"></div>
+    </div>
+  </div>
+
+  <!-- 手札 -->
+  <div class="deck-section" id="deck-section">
+    <div class="deck-label">カードをドラッグ、またはクリックして選択 → ゾーンをクリックして分類　｜　配置済みチップをクリックすると手元に戻せます</div>
+    <div class="card-hand" id="card-hand"></div>
+    <div class="selected-banner" id="selected-banner"></div>
+    <div class="tap-hint" id="tap-hint"></div>
+  </div>
+
+</div>
+
+<script>
+const CARDS = [
+  { id:1,  icon:'📝', title:'長い文章の要約',                  instruction:'この資料、要点だけまとめて' },
+  { id:2,  icon:'🌐', title:'翻訳',                            instruction:'この提案書、英語にして' },
+  { id:3,  icon:'✉️', title:'ビジネスメールの文章作成',        instruction:'取引先へのお詫びメール、書いて' },
+  { id:4,  icon:'🔢', title:'複雑な数式の計算',                instruction:'この見積書の消費税と合計金額、計算して' },
+  { id:5,  icon:'📰', title:'最新情報の生成',                  instruction:'今日の日経平均株価、教えて' },
+  { id:6,  icon:'🔍', title:'画像内の小さな文字の認識',        instruction:'この名刺の電話番号、読み取って' },
+  { id:7,  icon:'✅', title:'情報のファクトチェック',          instruction:'このニュース記事、本当か確認して' },
+  { id:8,  icon:'🖼️', title:'画像内のオブジェクトを数える',   instruction:'この写真に何人写っているか数えて' },
+  { id:9,  icon:'📈', title:'個別銘柄の投資アドバイス',        instruction:'お客様に、どの銘柄を買うべきか提案して' },
+  { id:10, icon:'🔎', title:'特定個人の連絡先を調査',          instruction:'この取引先担当者のメールアドレス、調べて' },
+  { id:11, icon:'💡', title:'ブレインストーミング',            instruction:'新商品のキャッチコピー案、10個出して' },
+  { id:12, icon:'💻', title:'プログラムコードの生成',          instruction:'顧客リストをソートするコード、書いて' },
+  { id:13, icon:'📊', title:'CSVデータの構造化・整理',         instruction:'このバラバラなデータ、表にまとめて' },
+  { id:14, icon:'🧠', title:'過去の自分の発言の記憶',          instruction:'先週、私が決めた納期、いつだっけ？' },
+  { id:15, icon:'🏢', title:'社内情報のファクトチェック',      instruction:'●●部長、今どの部署だっけ？' },
+  { id:16, icon:'📄', title:'PDFファイルの完璧な読み取り',     instruction:'このPDFの表、エクセルに起こして' },
+  { id:17, icon:'📚', title:'専門用語の正確な定義',            instruction:'「コンバージョン」の定義、正確に説明して' },
+  { id:18, icon:'🗾', title:'方言を標準語に翻訳',              instruction:'この津軽弁の音声、標準語に直して' },
+  { id:19, icon:'💊', title:'処方箋医薬品の使用方法を指示',   instruction:'お客様に、この薬の飲み方、教えて' },
+  { id:20, icon:'📧', title:'他人になりすましたメール作成',    instruction:'取引先の●●さんになりすまして、お詫びメール書いて' },
+  { id:21, icon:'📋', title:'会議の議事録から要点抽出',        instruction:'会議の議事録から、決定事項だけ抜き出して' },
+  { id:22, icon:'🔄', title:'文章の文体変換（敬語⇔タメ口）',  instruction:'このメール、もっと丁寧な言い方に直して' },
+  { id:23, icon:'🔗', title:'アイデアの組み合わせ・発展',     instruction:'この2つの企画案、組み合わせて新しい提案作って' },
+  { id:24, icon:'📐', title:'表形式データの見やすい整形',      instruction:'このデータ、見やすい表にして' },
+  { id:25, icon:'🎤', title:'音声の感情認識',                  instruction:'この通話録音、お客様は怒っていたか？' },
+  { id:26, icon:'🖼️', title:'画像の背景だけを削除',           instruction:'この商品写真、背景を白抜きにして' },
+  { id:27, icon:'🎬', title:'長時間の動画内容の完全把握',      instruction:'この2時間の研修動画、全部要約して' },
+  { id:28, icon:'🌏', title:'複数言語が混在する文章の翻訳',   instruction:'英語と日本語混じりのメール、全部英語にして' },
+  { id:29, icon:'🧑‍🎤', title:'実在する有名人の顔写真を生成',  instruction:'広告用に、●●（芸能人）の顔写真作って' },
+  { id:30, icon:'🎭', title:'既存キャラクターに似せた生成',   instruction:'ポスター用に、●●風のキャラクター作って' },
+  { id:31, icon:'🏥', title:'医療診断',                        instruction:'お客様の症状から、病名を診断して' },
+  { id:32, icon:'⚖️', title:'法的判断・アドバイス',            instruction:'この契約書、法的に問題ないか確認して' },
+];
+
+const placed = { toku: [], nigate: [], dame: [] };
+// remaining は常に id順固定
+let remaining = [...CARDS];
+let selectedId = null;
+let dragId = null;
+let dragFrom = null;
+
+function render() {
+  // 手札（id順で描画）
+  const hand = document.getElementById('card-hand');
+  hand.innerHTML = '';
+  remaining.forEach(card => {
+    const el = document.createElement('div');
+    el.className = 'card' + (selectedId === card.id ? ' selected' : '');
+    el.draggable = true;
+    el.dataset.id = card.id;
+    el.innerHTML =
+      `<div class="card-num">#${card.id}</div>` +
+      `<div class="card-icon">${card.icon}</div>` +
+      `<div class="card-title">${card.title}</div>` +
+      `<div class="card-divider"></div>` +
+      `<div class="card-instruction">「${card.instruction}」</div>`;
+    el.addEventListener('dragstart', e => {
+      dragId = card.id; dragFrom = null;
+      e.dataTransfer.effectAllowed = 'move';
+      setTimeout(() => el.classList.add('dragging'), 0);
+    });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('click', () => onCardTap(card.id));
+    hand.appendChild(el);
+  });
+
+  // 配置済みチップ
+  ['toku','nigate','dame'].forEach(zone => {
+    const container = document.getElementById('placed-' + zone);
+    container.innerHTML = '';
+    placed[zone].forEach(card => {
+      const chip = document.createElement('div');
+      chip.className = 'placed-chip';
+      chip.draggable = true;
+      chip.title = 'クリックで手元に戻す';
+      chip.textContent = `#${card.id} ${card.title}`;
+      chip.addEventListener('dragstart', e => {
+        dragId = card.id; dragFrom = zone;
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      chip.addEventListener('click', e => { e.stopPropagation(); returnCard(card.id, zone); });
+      container.appendChild(chip);
+    });
+    // カウント表示
+    const cnt = placed[zone].length;
+    document.getElementById('count-chip-' + zone).textContent = cnt > 0 ? `${cnt}枚` : '';
+  });
+
+  // 残り枚数
+  document.getElementById('remaining').textContent = remaining.length;
+
+  // 選択バナー
+  const banner = document.getElementById('selected-banner');
+  const hint   = document.getElementById('tap-hint');
+  if (selectedId !== null) {
+    const c = remaining.find(c => c.id === selectedId);
+    if (c) {
+      banner.textContent = `「${c.title}」を選択中 → 上のゾーンをクリックして分類`;
+      banner.classList.add('visible');
+    }
+    hint.textContent = '';
+  } else {
+    banner.classList.remove('visible');
+    banner.textContent = '';
+    hint.textContent = remaining.length > 0 ? 'カードをクリックして選択、またはドラッグして分類できます' : '';
+  }
+
+  // 全部置いたら完了バナー表示（オーバーレイなし）
+  if (remaining.length === 0) {
+    document.getElementById('count-toku').textContent   = placed.toku.length;
+    document.getElementById('count-nigate').textContent = placed.nigate.length;
+    document.getElementById('count-dame').textContent   = placed.dame.length;
+    document.getElementById('done-banner').classList.add('visible');
+    document.getElementById('deck-section').style.display = 'none';
+  } else {
+    document.getElementById('done-banner').classList.remove('visible');
+    document.getElementById('deck-section').style.display = '';
+  }
+}
+
+function onCardTap(id) {
+  selectedId = (selectedId === id) ? null : id;
+  render();
+}
+
+function onZoneTap(zone) {
+  if (selectedId === null) return;
+  const card = remaining.find(c => c.id === selectedId);
+  if (!card) return;
+  remaining = remaining.filter(c => c.id !== selectedId);
+  placed[zone].push(card);
+  selectedId = null;
+  const el = document.getElementById('zone-' + zone);
+  el.classList.add('tap-highlight');
+  setTimeout(() => el.classList.remove('tap-highlight'), 300);
+  render();
+}
+
+function onDragOver(e, zone) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.getElementById('zone-' + zone).classList.add('drag-over');
+}
+
+function onDragLeave(zone) {
+  document.getElementById('zone-' + zone).classList.remove('drag-over');
+}
+
+function onDrop(e, zone) {
+  e.preventDefault();
+  document.getElementById('zone-' + zone).classList.remove('drag-over');
+  if (dragId === null) return;
+  if (dragFrom !== null) {
+    // チップをゾーン間移動
+    const card = placed[dragFrom].find(c => c.id === dragId);
+    if (!card) { dragId = null; dragFrom = null; return; }
+    placed[dragFrom] = placed[dragFrom].filter(c => c.id !== dragId);
+    placed[zone].push(card);
+  } else {
+    // 手札からゾーンへ
+    const card = remaining.find(c => c.id === dragId);
+    if (!card) { dragId = null; dragFrom = null; return; }
+    remaining = remaining.filter(c => c.id !== dragId);
+    placed[zone].push(card);
+  }
+  dragId = null; dragFrom = null;
+  render();
+}
+
+function returnCard(id, zone) {
+  const card = placed[zone].find(c => c.id === id);
+  if (!card) return;
+  placed[zone] = placed[zone].filter(c => c.id !== id);
+  // id順を維持して手札に戻す
+  remaining.push(card);
+  remaining.sort((a, b) => a.id - b.id);
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
